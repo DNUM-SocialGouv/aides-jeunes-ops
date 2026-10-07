@@ -18,7 +18,7 @@ virtualmachines:
         port: 8887
       applications:
         - name: aides_jeunes
-          repository: https://github.com/betagouv/aides-jeunes.git
+          repository: https://github.com/DNUM-SocialGouv/aides-jeunes.git
           branch: main
           default_site: true
           https: false
@@ -31,7 +31,7 @@ virtualmachines:
             simulations: '{"createdAt": {"$gte": { "$date": "2023-01-01T00:00:00.000Z" }}}'
             followups: '{"createdAt": {"$gte": { "$date": "2023-01-01T00:00:00.000Z" }}}'
         - name: aides_jeunes_preprod
-          repository: https://github.com/betagouv/aides-jeunes.git
+          repository: https://github.com/DNUM-SocialGouv/aides-jeunes.git
           branch: dev
           default_site: false
           https: false
