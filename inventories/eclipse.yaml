@@ -16,6 +16,10 @@ virtualmachines:
         - Shamzic
       monitor:
         port: 8887
+      alerting_dsn_destination: sentry.incubateur.net/169
+      mongodb_backup_databases:
+        - db_aides_jeunes
+        - db_stats_recorder
       applications:
         - name: aides_jeunes
           repository: https://github.com/DNUM-SocialGouv/aides-jeunes.git
