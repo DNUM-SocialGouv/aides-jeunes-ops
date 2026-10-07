@@ -195,6 +195,12 @@ server {
   location @default {
     {{ proxy_section('http://' + upstream_name ) }}
   }
+
+  {% if is_default and stats_recorder is defined %}
+  location ^~ /stats-recorder/ {
+    {{ proxy_section('http://127.0.0.1:' ~ stats_recorder.port ~ '/') }}
+  }
+  {% endif %}
   {% else %}
   location / {
   {% if 'openfisca' in service_domain %}
