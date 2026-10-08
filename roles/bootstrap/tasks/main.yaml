@@ -102,3 +102,10 @@
     apply:
       tags: update
   tags: update
+- name: Setup stats recorder
+  ansible.builtin.include_tasks:
+    file: stats_recorder.yaml
+    apply:
+      tags: update
+  when: stats_recorder is defined and target_application | default('stats_recorder') == 'stats_recorder'
+  tags: update
