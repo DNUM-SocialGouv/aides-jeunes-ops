@@ -16,6 +16,9 @@ virtualmachines:
         - devthejo
       monitor:
         port: 8887
+      mongodb_backup_databases:
+        - db_aides_jeunes
+        - db_stats_recorder
       applications:
         - name: aides_jeunes
           repository: https://github.com/DNUM-SocialGouv/aides-jeunes.git
@@ -42,6 +45,9 @@ virtualmachines:
           node_instance_number: 2
           openfisca_server_port: 2002
           openfisca_worker_number: 2
+      stats_recorder:
+        branch: main
+        port: 4001
       ops:
         repository: https://github.com/DNUM-SocialGouv/aides-jeunes-ops.git
         branch: main
