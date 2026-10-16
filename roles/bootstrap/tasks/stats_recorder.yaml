@@ -1,0 +1,38 @@
+---
+- name: Clone stats recorder
+  become: true
+  become_user: "{{ server_user_name }}"
+  ansible.builtin.git:
+    repo: https://github.com/DNUM-SocialGouv/aides-jeunes-stats-recorder.git
+    dest: /home/{{ server_user_name }}/stats_recorder/repository
+    version: "{{ stats_recorder.branch }}"
+    single_branch: true
+- name: Install stats recorder
+  become: true
+  become_user: "{{ server_user_name }}"
+  ansible.builtin.command:
+    chdir: /home/{{ server_user_name }}/stats_recorder/repository
+    cmd: npm ci --omit=dev
+  changed_when: true
+- name: Start stats recorder
+  become: true
+  become_user: "{{ server_user_name }}"
+  ansible.builtin.shell:
+    chdir: /home/{{ server_user_name }}/stats_recorder/repository
+    cmd: >-
+      HOST=127.0.0.1 PORT={{ stats_recorder.port }} NODE_ENV=production
+      MONGO_URL=mongodb://127.0.0.1/db_stats_recorder
+      sh -c 'pm2 restart stats_recorder --update-env || pm2 start server.js --name stats_recorder' && pm2 save
+  changed_when: true
+- name: Generate stats recorder deployment key
+  become: true
+  become_user: "{{ server_user_name }}"
+  community.crypto.openssh_keypair:
+    path: /home/{{ server_user_name }}/stats_recorder/id_rsa
+  register: stats_recorder_key
+- name: Allow stats recorder deployment key
+  ansible.posix.authorized_key:
+    user: "{{ ansible_ssh_user }}"
+    key: "{{ stats_recorder_key.public_key }}"
+    key_options: >-
+      command="/opt/mes-aides/scripts/update.sh {{ inventory_file | basename | splitext | first }} stats_recorder",no-pty,no-port-forwarding,no-agent-forwarding

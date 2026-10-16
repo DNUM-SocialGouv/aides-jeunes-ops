@@ -195,6 +195,14 @@ server {
   location @default {
     {{ proxy_section('http://' + upstream_name ) }}
   }
+
+  {% if stats_recorder is defined %}
+  # Servi sous le domaine de chaque site : le navigateur y envoie les
+  # statistiques depuis la même origine, sans CORS à configurer.
+  location ^~ /stats-recorder/ {
+    {{ proxy_section('http://127.0.0.1:' ~ stats_recorder.port ~ '/') }}
+  }
+  {% endif %}
   {% else %}
   location / {
   {% if 'openfisca' in service_domain %}

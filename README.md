@@ -35,7 +35,7 @@ virtualmachines:
         port: 8887
       applications:                                                      # List all applications that will be deployed
         - name: aides_jeunes
-          repository: https://github.com/betagouv/aides-jeunes.git
+          repository: https://github.com/DNUM-SocialGouv/aides-jeunes.git
           branch: main
           default_site: true
           https: true
