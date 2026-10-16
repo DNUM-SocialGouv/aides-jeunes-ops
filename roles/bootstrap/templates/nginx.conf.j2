@@ -74,6 +74,19 @@ http {
   # pénaliserait des utilisateurs légitimes.
   limit_req_zone $binary_remote_addr zone=simulation_per_ip:10m rate=300r/m;
   limit_req_status 429;
+{% if stats_recorder is defined %}
+
+  # Les lectures du stats-recorder (`/statistics`, `/benefits` en GET) agrègent
+  # toute la collection dans le mongod de production, sans authentification.
+  # Elles passent une par une ; les envois (POST) et le preflight CORS ne sont
+  # pas comptés, leur clé étant vide.
+  map $request_method $stats_recorder_read {
+    POST    "";
+    OPTIONS "";
+    default "reads";
+  }
+  limit_conn_zone $stats_recorder_read zone=stats_recorder_reads:1m;
+{% endif %}
 
   ##
   # SSL Settings

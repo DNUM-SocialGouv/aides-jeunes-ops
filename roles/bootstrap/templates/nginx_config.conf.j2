@@ -200,6 +200,7 @@ server {
   # Servi sous le domaine de chaque site : le navigateur y envoie les
   # statistiques depuis la même origine, sans CORS à configurer.
   location ^~ /stats-recorder/ {
+    limit_conn stats_recorder_reads 1;
     {{ proxy_section('http://127.0.0.1:' ~ stats_recorder.port ~ '/') }}
   }
   {% endif %}
