@@ -1,25 +1,129 @@
 ---
-- name: Install mongoDB 7.x
+# mongod ne sait monter que d'une majeure à la suivante, et seulement sur des
+# données dont la featureCompatibilityVersion est déjà celle de la majeure
+# courante. Sinon le nouveau binaire refuse de démarrer : la panne se
+# découvrirait au redémarrage, base de production comprise. Le contrôle passe
+# donc avant toute modification des paquets.
+- name: Look for an existing MongoDB installation
+  ansible.builtin.stat:
+    path: /usr/bin/mongosh
+  register: mongosh_binary
+- name: Check the mongod upgrade path
+  when: mongosh_binary.stat.exists
   block:
-    - name: Add mongoDB 7.x apt key
-      ansible.builtin.apt_key:
-        url: https://www.mongodb.org/static/pgp/server-7.0.asc
-        state: present
-    - name: Add mongoDB 7.x ppa for apt repo - arm64
+    - name: Read mongod version and featureCompatibilityVersion
+      ansible.builtin.command:
+        argv:
+          - mongosh
+          - --quiet
+          - mongodb://127.0.0.1:27017/admin
+          - --eval
+          - >-
+            print(JSON.stringify({ version: db.version(), fcv: db.adminCommand({
+            getParameter: 1, featureCompatibilityVersion: 1 }).featureCompatibilityVersion.version }))
+      register: mongod_running
+      changed_when: false
+    - name: Set mongod upgrade facts
+      ansible.builtin.set_fact:
+        mongod_running_version: "{{ (mongod_running.stdout_lines | last | from_json).version }}"
+        mongod_running_fcv: "{{ (mongod_running.stdout_lines | last | from_json).fcv }}"
+        mongod_running_major: "{{ (mongod_running.stdout_lines | last | from_json).version.split('.') | first | int }}"
+        mongod_running_minor: "{{ (mongod_running.stdout_lines | last | from_json).version.split('.')[:2] | join('.') }}"
+        mongod_target_major: "{{ mongodb_version.split('.') | first | int }}"
+    # Une FCV restée en arrière d'une montée précédente se rattrape ici, sur le
+    # binaire en place : c'est le préalable de la montée suivante, et l'étape
+    # reste réversible tant que le binaire n'a pas changé. `confirm` est exigé
+    # depuis la 7.0, d'où la borne.
+    - name: Raise featureCompatibilityVersion to the running version
+      ansible.builtin.command:
+        argv:
+          - mongosh
+          - --quiet
+          - mongodb://127.0.0.1:27017/admin
+          - --eval
+          - >-
+            const r = db.adminCommand({ setFeatureCompatibilityVersion: "{{ mongod_running_minor }}", confirm: true });
+            if (!r.ok) { throw new Error(JSON.stringify(r)) }
+      when:
+        - mongod_running_major | int == mongod_target_major | int - 1
+        - mongod_running_major | int >= 7
+        - mongod_running_fcv != mongod_running_minor
+      register: mongod_fcv_raised
+      changed_when: true
+    - name: Refuse an upgrade mongod cannot perform
+      vars:
+        fcv: "{{ mongod_running_minor if mongod_fcv_raised is changed else mongod_running_fcv }}"
+      ansible.builtin.assert:
+        that: >-
+          mongod_running_major | int == mongod_target_major | int
+          or (mongod_running_major | int == mongod_target_major | int - 1
+              and fcv == mongod_running_minor)
+        fail_msg: >-
+          mongod {{ mongod_running_version }} (featureCompatibilityVersion {{ fcv }})
+          ne peut pas passer en {{ mongodb_version }}. Passer d'abord la
+          featureCompatibilityVersion à {{ mongod_running_minor }},
+          ou monter d'une seule majeure à la fois.
+- name: Install mongoDB {{ mongodb_version }}
+  block:
+    - name: Add mongoDB signing key {{ mongodb_version }}
+      ansible.builtin.get_url:
+        url: https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc
+        dest: /usr/share/keyrings/mongodb-server-{{ mongodb_version }}.asc
+        mode: "0644"
+    # Fichiers posés par l'ancienne tâche, nommés d'après l'URL du dépôt. Retirés
+    # entiers plutôt que ligne à ligne : une ligne retouchée à la main ne
+    # correspondrait plus, et l'ancienne majeure resterait une source apt.
+    - name: Remove the previous mongoDB apt repositories
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/{{ item }}
+        state: absent
+      loop:
+        - repo_mongodb_org_apt_debian.list
+        - repo_mongodb_org_apt_ubuntu.list
+    - name: Add mongoDB apt repository for arm64 {{ mongodb_version }}
       ansible.builtin.apt_repository:
-        repo: deb https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse
+        repo: >-
+          deb [signed-by=/usr/share/keyrings/mongodb-server-{{ mongodb_version }}.asc]
+          https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/{{ mongodb_version }} multiverse
+        filename: mongodb-org
         update_cache: true
       when: ansible_facts.machine == 'aarch64'
-    - name: Add mongoDB 7.x ppa for apt repo - amd64
+    - name: Add mongoDB apt repository for amd64 {{ mongodb_version }}
       ansible.builtin.apt_repository:
-        repo: deb https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main
+        repo: >-
+          deb [signed-by=/usr/share/keyrings/mongodb-server-{{ mongodb_version }}.asc]
+          https://repo.mongodb.org/apt/debian bookworm/mongodb-org/{{ mongodb_version }} main
+        filename: mongodb-org
         update_cache: true
       when: ansible_facts.machine != 'aarch64'
+    # Le métapaquet ne fixe pas la version de ses dépendances : le serveur est
+    # nommé explicitement pour qu'il ne puisse pas rester sur l'ancienne majeure.
     - name: Install mongoDB
       ansible.builtin.apt:
         update_cache: true
-        name: mongodb-org
+        name:
+          - mongodb-org={{ mongodb_version }}.*
+          - mongodb-org-server={{ mongodb_version }}.*
+      register: mongodb_package
       notify: Reload systemd
+    - name: Configure mongod
+      ansible.builtin.template:
+        src: templates/mongod.conf.j2
+        dest: /etc/mongod.conf
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      register: mongod_config
+    # Redémarrage immédiat plutôt que par handler : différé, il aurait lieu après
+    # le redéploiement des applications, et un mongod qui ne repart pas ne se
+    # verrait qu'en fin de jeu.
+    - name: Restart mongod on a new version or configuration
+      ansible.builtin.systemd:
+        name: mongod
+        state: restarted
+        daemon_reload: true
+      when: mongodb_package.changed or mongod_config.changed
     - name: Start mongod service if not started
       become: true
       become_method: ansible.builtin.sudo
@@ -33,3 +137,8 @@
         name: mongod
         enabled: true
         daemon_reload: true
+    - name: Wait for mongod
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 27017
+        timeout: 60

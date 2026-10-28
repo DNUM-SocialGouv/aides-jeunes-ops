@@ -106,6 +106,28 @@ In order to setup continuous deployment, you will need to:
 - get the private key (see `ansible_ssh_private_key_file` in inventory)
 - set it up in your Github repository as a secret (see [here](https://github.com/betagouv/aides-jeunes/blob/400ab5f90219141b438388d58cd4f27f8fb0ebd6/.github/workflows/cd.yml#L48))
 
+### MongoDB
+
+`bootstrap.yaml` installs the major version set by `mongodb_version` and manages
+`/etc/mongod.conf` (the previous file is kept next to it as a timestamped backup).
+
+#### Upgrading to the next major version
+
+mongod only upgrades one major version at a time, and only once the
+`featureCompatibilityVersion` (FCV) matches the running major version. Before
+touching any package, the play raises an FCV left behind by a previous upgrade
+to the running version, and stops with an explicit message if the upgrade is
+still impossible (more than one major version ahead). To upgrade:
+
+1. Make sure the last nightly backup succeeded (`systemctl status mongodb-backup.service`).
+2. Bump `mongodb_version` and deploy to preproduction (`dev`), then production (`main`).
+3. Once the application has run fine on the new version, raise the FCV by hand — this is
+   what makes a downgrade impractical, so it is deliberately not automated:
+
+```bash
+mongosh --quiet --eval 'db.adminCommand({ setFeatureCompatibilityVersion: "8.0", confirm: true })'
+```
+
 ### Automatic MongoDB backup
 
 The `bootstrap` role installs a scheduled backup of the production database. It is applied

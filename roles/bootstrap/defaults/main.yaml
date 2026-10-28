@@ -10,10 +10,19 @@ webroot_path: /var/www
 is_default: false
 challenge_proxy: false
 node_version: "24"
+# Version installée (paquet NodeSource) et minimum exigé : un serveur en
+# dessous est mis à jour, le déploiement échoue sinon.
+node_min_version: "24.22.1"
 # Penser à modifier le fichier install_python.yaml la ligne 6
 # changed_when: "'python3.11' not in python_installed.stdout"
 python_version: "3.11.4"
 python_control_version: "3.11"
+
+# MongoDB
+# Majeure installée. mongod ne monte que d'une majeure à la suivante, sur des
+# données dont la featureCompatibilityVersion est celle de la majeure courante :
+# install_mongodb.yaml le vérifie avant de toucher aux paquets.
+mongodb_version: "8.0"
 
 # Sauvegarde MongoDB
 # Bases sauvegardées, une archive par base et par exécution. `db_aides_jeunes`
