@@ -18,6 +18,12 @@ node_min_version: "24.22.1"
 python_version: "3.11.4"
 python_control_version: "3.11"
 
+# MongoDB
+# Majeure installée. mongod ne monte que d'une majeure à la suivante, sur des
+# données dont la featureCompatibilityVersion est celle de la majeure courante :
+# install_mongodb.yaml le vérifie avant de toucher aux paquets.
+mongodb_version: "8.0"
+
 # Sauvegarde MongoDB
 # Bases sauvegardées, une archive par base et par exécution. `db_aides_jeunes`
 # est la base de production ; la preprod est reconstruite depuis la prod et
