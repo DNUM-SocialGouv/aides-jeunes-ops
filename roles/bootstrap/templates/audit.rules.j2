@@ -1,0 +1,20 @@
+## MANAGED BY MES AIDES OPS — voir setup_audit.yaml
+
+# Commandes lancées par une session humaine, attribuées au login d'origine
+# (auid), qui survit à sudo et su. Exclus : le compte de déploiement, dont les
+# sessions sont des commandes forcées (npm ci, constructions : des milliers de
+# processus), et le compte applicatif, dont les tâches cron ouvrent une session.
+-a always,exit -F arch=b64 -S execve -F auid>=1000 -F auid!=unset -F auid!={{ audit_deploy_uid }} -F auid!={{ audit_server_uid }} -k exec_humain
+-a always,exit -F arch=b32 -S execve -F auid>=1000 -F auid!=unset -F auid!={{ audit_deploy_uid }} -F auid!={{ audit_server_uid }} -k exec_humain
+
+# Configuration qui décide de qui entre et de ce qui est tracé.
+-w /etc/ssh/ -p wa -k config_acces
+-w /etc/sudoers -p wa -k config_acces
+-w /etc/sudoers.d/ -p wa -k config_acces
+-w /etc/passwd -p wa -k config_acces
+-w /etc/shadow -p wa -k config_acces
+-w /etc/audit/ -p wa -k config_audit
+
+# Règles immuables jusqu'au prochain redémarrage : root ne peut plus les
+# retirer en silence, seulement redémarrer la machine — ce qui se voit.
+-e 2
