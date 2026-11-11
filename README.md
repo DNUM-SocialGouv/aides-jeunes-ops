@@ -61,7 +61,7 @@ It is advised to run this command on a newly installed server, while keeping an 
 By default, every `github_users` entry gets its GitHub keys on the shared `ansible_ssh_user` account: nobody can tell who did what. Two inventory flags change that, both `false` by default:
 
 - `ssh_nominative_accounts: true` — applied by `synchronize.yaml`:
-  - one account per `github_users` entry, named after the GitHub login **in lowercase** (`Shamzic` → `shamzic`), with exactly the keys published at `https://github.com/<login>.keys`, in the `ssh_admins` group, with passwordless `sudo`;
+  - one account per `github_users` entry, named after the GitHub login **in lowercase** (`Username` → `username`), with exactly the keys published at `https://github.com/<login>.keys`, in the `ssh_admins` group, with passwordless `sudo`;
   - the shared account (`deploy_user`, which defaults to `ansible_ssh_user`) only keeps the forced-command deployment keys. Requires `ops.update_key`.
   - Connect with `ssh <login>@<host>`, then `sudo -i` as needed.
 - `ssh_audit: true` — applied by `bootstrap.yaml`: sshd logs key fingerprints (`LogLevel VERBOSE`) and auditd records every command run by a human session, attributed to the login that opened it, even after `sudo -i` (`sudo ausearch -k exec_humain -i`) and every write to `/etc/ssh`, sudoers, `passwd`/`shadow` and the audit rules (`-k config_acces`, `-k config_audit`). Rules are locked (`-e 2`): changing them requires a reboot. These traces stay on the machine for now, so any administrator can still erase them; shipping them off the machine is pending validation.
