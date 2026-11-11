@@ -1,0 +1,70 @@
+---
+# Traces des connexions et actions humaines. Tant qu'elles restent sur la
+# machine, un administrateur peut les effacer : elles attribuent, elles ne
+# prouvent pas. Leur export hors machine attend une validation.
+- name: Log the SSH key fingerprint of each connection
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: ^#?LogLevel
+    line: LogLevel VERBOSE
+    validate: sshd -t -f %s
+  notify: Restart sshd
+
+- name: Install auditd
+  ansible.builtin.apt:
+    name: auditd
+    state: present
+
+# Lisible par le groupe adm, comme le reste de /var/log.
+- name: Let the adm group read the audit log
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: ^log_group\s*=
+    line: log_group = adm
+  notify: Restart auditd
+
+- name: Read the deployment and application account ids
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ item }}"
+  loop:
+    - "{{ deploy_user }}"
+    - "{{ server_user_name }}"
+
+- name: Write audit rules
+  ansible.builtin.template:
+    src: audit.rules.j2
+    dest: /etc/audit/rules.d/aides-jeunes.rules
+    mode: "0640"
+  vars:
+    audit_deploy_uid: "{{ ansible_facts.getent_passwd[deploy_user][1] }}"
+    audit_server_uid: "{{ ansible_facts.getent_passwd[server_user_name][1] }}"
+  register: audit_rules
+
+- name: Read the audit rules lock state
+  ansible.builtin.command: auditctl -s
+  register: audit_status
+  changed_when: false
+
+# Une fois `-e 2` chargé, le noyau refuse toute modification jusqu'au
+# redémarrage : augenrules échouerait à chaque passage.
+- name: Load audit rules
+  ansible.builtin.command: augenrules --load
+  when: audit_rules is changed and 'enabled 2' not in audit_status.stdout
+  changed_when: true
+
+- name: Report audit rules waiting for a reboot
+  ansible.builtin.assert:
+    that: audit_rules is not changed or 'enabled 2' not in audit_status.stdout
+    fail_msg: >-
+      Les règles d'audit ont changé mais sont verrouillées (`-e 2`) : elles
+      ne s'appliqueront qu'au prochain redémarrage de la machine.
+    quiet: true
+  register: audit_rules_reboot_check
+  ignore_errors: true
+
+- name: Enable auditd
+  ansible.builtin.service:
+    name: auditd
+    enabled: true
+    state: started

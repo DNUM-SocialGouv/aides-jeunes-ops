@@ -32,7 +32,7 @@
   register: stats_recorder_key
 - name: Allow stats recorder deployment key
   ansible.posix.authorized_key:
-    user: "{{ ansible_ssh_user }}"
+    user: "{{ deploy_user }}"
     key: "{{ stats_recorder_key.public_key }}"
     key_options: >-
       command="/opt/mes-aides/scripts/update.sh {{ inventory_file | basename | splitext | first }} stats_recorder",no-pty,no-port-forwarding,no-agent-forwarding

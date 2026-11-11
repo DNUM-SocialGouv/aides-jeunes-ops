@@ -28,7 +28,7 @@
       register: ssh_keypair
     - name: Add application key to authorized_key
       ansible.posix.authorized_key:
-        user: "{{ ansible_ssh_user }}"
+        user: "{{ deploy_user }}"
         state: present
         key: "{{ ssh_keypair.public_key }}"
         comment: "# Application deployment key for {{ item.name }}"

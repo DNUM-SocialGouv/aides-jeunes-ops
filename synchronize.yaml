@@ -38,19 +38,87 @@
       ansible.builtin.set_fact:
         deploy_command: /opt/mes-aides/scripts/update_ops.sh {{ inventory_file | basename | splitext | first }}
         deploy_access_rules: no-pty,no-port-forwarding,no-agent-forwarding
+        # Ce jeu ne charge pas les valeurs par défaut du rôle : même défaut
+        # que dans roles/bootstrap/defaults/main.yaml.
+        deploy_user: "{{ deploy_user | default(ansible_ssh_user) }}"
+    # Comptes nominatifs : créés AVANT la pose exclusive de la clé de
+    # déploiement ci-dessous, qui retire du compte partagé les clés humaines.
+    # Dans l'autre ordre, un échec ici laisserait tout le monde dehors.
+    - name: Create nominative SSH accounts
+      when: ssh_nominative_accounts | default(false)
+      vars:
+        removed_ssh_admins: >-
+          {{ (ansible_facts.getent_group.ssh_admins[2] | default('')).split(',')
+             | select | difference(github_users | map('lower')) }}
+      block:
+        # Sans clé exclusive sur le compte de déploiement, les clés humaines
+        # n'en seraient jamais retirées.
+        - name: Check that the deployment key purges the shared account
+          ansible.builtin.assert:
+            that: ops.update_key is defined
+            fail_msg: >-
+              `ssh_nominative_accounts` exige `ops.update_key` : c'est sa pose
+              exclusive qui retire les clés personnelles de {{ deploy_user }}.
+        - name: Create the SSH administrators group
+          ansible.builtin.group:
+            name: ssh_admins
+            state: present
+        - name: Create one account per listed github user
+          ansible.builtin.user:
+            name: "{{ item | lower }}"
+            groups: ssh_admins
+            append: true
+            shell: /bin/bash
+            password: "*" # pas de mot de passe, connexion par clé seulement
+            password_lock: false # lève le verrou d'une personne réinscrite
+          with_items: "{{ github_users }}"
+        - name: Set authorized_keys of nominative accounts from GitHub
+          ansible.posix.authorized_key:
+            user: "{{ item | lower }}"
+            key: https://github.com/{{ item }}.keys
+            exclusive: true
+          with_items: "{{ github_users }}"
+        # Sans mot de passe, un sudo qui en demande un serait inutilisable.
+        # Chaque élévation reste journalisée au nom de la personne.
+        - name: Allow SSH administrators to use sudo
+          ansible.builtin.copy:
+            dest: /etc/sudoers.d/ssh_admins
+            content: "%ssh_admins ALL=(ALL) NOPASSWD:ALL\n"
+            mode: "0440"
+            validate: visudo -cf %s
+        - name: List SSH administrators accounts
+          ansible.builtin.getent:
+            database: group
+            key: ssh_admins
+        # Verrouillé et non supprimé : le répertoire peut servir à une enquête.
+        # Réinscrire la personne dans `github_users` la déverrouille.
+        - name: Lock accounts removed from github_users
+          ansible.builtin.user:
+            name: "{{ item }}"
+            password_lock: true
+            shell: /usr/sbin/nologin
+          loop: "{{ removed_ssh_admins }}"
+        - name: Remove authorized_keys of removed accounts
+          ansible.builtin.file:
+            path: ~{{ item }}/.ssh/authorized_keys
+            state: absent
+          loop: "{{ removed_ssh_admins }}"
     - name: Add SSH deployment key
       ansible.posix.authorized_key:
-        user: "{{ ansible_ssh_user }}"
+        user: "{{ deploy_user }}"
         state: present
         comment: "# Key for deployment"
         exclusive: true
         key: "{{ ops.update_key }}"
         key_options: command="{{ deploy_command }}",{{ deploy_access_rules }}"
       when: ops.update_key is defined
+    # Comportement historique : tout le monde sur le compte partagé. Abandonné
+    # dès que les comptes nominatifs sont activés.
     - name: Set authorized_keys for listed github users
       ansible.posix.authorized_key:
-        user: "{{ ansible_ssh_user }}"
+        user: "{{ deploy_user }}"
         state: present
         comment: "# User key for {{ item }}"
         key: https://github.com/{{ item }}.keys
       with_items: "{{ github_users }}"
+      when: not (ssh_nominative_accounts | default(false))

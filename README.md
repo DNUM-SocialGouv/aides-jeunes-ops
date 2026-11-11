@@ -56,6 +56,20 @@ This will disable SSH connection to the server using password. This step will no
 
 It is advised to run this command on a newly installed server, while keeping an active ssh connection in parallel and only if you understand the implication of those parameters. Your hosting service should provide you with an emergency access if you get locked out of the server.
 
+### Nominative SSH accounts and audit trail (opt-in, per host)
+
+By default, every `github_users` entry gets its GitHub keys on the shared `ansible_ssh_user` account: nobody can tell who did what. Two inventory flags change that, both `false` by default:
+
+- `ssh_nominative_accounts: true` — applied by `synchronize.yaml`:
+  - one account per `github_users` entry, named after the GitHub login **in lowercase** (`Username` → `username`), with exactly the keys published at `https://github.com/<login>.keys`, in the `ssh_admins` group, with passwordless `sudo`;
+  - the shared account (`deploy_user`, which defaults to `ansible_ssh_user`) only keeps the forced-command deployment keys. Requires `ops.update_key`.
+  - Connect with `ssh <login>@<host>`, then `sudo -i` as needed.
+- `ssh_audit: true` — applied by `bootstrap.yaml`: sshd logs key fingerprints (`LogLevel VERBOSE`) and auditd records every command run by a human session, attributed to the login that opened it, even after `sudo -i` (`sudo ausearch -k exec_humain -i`) and every write to `/etc/ssh`, sudoers, `passwd`/`shadow` and the audit rules (`-k config_acces`, `-k config_audit`). Rules are locked (`-e 2`): changing them requires a reboot. These traces stay on the machine for now, so any administrator can still erase them; shipping them off the machine is pending validation.
+
+**Adding someone**: add their GitHub login to `github_users`, push. **Removing someone**: remove the login; on the next run the account is locked (shell `nologin`, `authorized_keys` deleted) but its home directory is kept. Adding the login back unlocks it.
+
+**Enabling on a host**: enable `ssh_audit` first, then `ssh_nominative_accounts` while keeping a session open on the shared account, and have everyone check `ssh <login>@<host>` and `sudo -v` before closing it. **Rolling back**: set `ssh_nominative_accounts: false`; the next run puts the `github_users` keys back on the shared account. If nobody can connect anymore, use the hosting provider's console.
+
 ### Listing required DNS record
 
 In order for the server to be successfully deployed, some sub domain name must be specified in the DNS record. In order to know which values are required, simply run `ansible-playbook -i ./inventories/vps.yaml dns-record.yaml`. You will get an output such as this one:
