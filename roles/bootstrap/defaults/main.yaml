@@ -10,6 +10,9 @@ webroot_path: /var/www
 is_default: false
 challenge_proxy: false
 node_version: "24"
+# Interface d'écoute des services (app, OpenFisca, monitoring). Seul nginx est
+# exposé en production ; l'inventaire local passe à 0.0.0.0 pour Docker.
+listen_host: "127.0.0.1"
 # Version installée (paquet NodeSource) et minimum exigé : un serveur en
 # dessous est mis à jour, le déploiement échoue sinon.
 node_min_version: "24.22.1"

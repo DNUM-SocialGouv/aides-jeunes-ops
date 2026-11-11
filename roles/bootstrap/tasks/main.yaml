@@ -50,7 +50,7 @@
 ## Setup Monitoring service
 - name: Configure monitoring service
   ansible.builtin.include_tasks: setup_monitor.yaml
-  when: monitor and monitor.port
+  when: monitor.port is defined
 
 ## Setup systemd failure alerting
 - name: Configure systemd failure alerting
