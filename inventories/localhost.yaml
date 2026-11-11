@@ -8,6 +8,8 @@ virtualmachines:
       ansible_ssh_user: root
       ansible_ssh_private_key_file: ~/.ssh/id_rsa
       ansible_host_ip: 51.38.232.135
+      # Conteneur local : services joignables par les ports publiés par Docker.
+      listen_host: "0.0.0.0"
       fullname: solstice.mes-aides.1jeune1solution.beta.gouv.fr
       dns_root: beta.gouv.fr
       email: prenom.nom@beta.gouv.fr
