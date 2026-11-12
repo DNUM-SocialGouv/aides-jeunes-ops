@@ -13,7 +13,7 @@
     state: present
 - name: Install build tools
   ansible.builtin.apt:
-    name: [rsync, python3-pip, build-essential, git, man, ntp]
+    name: [rsync, python3-pip, build-essential, git, man, ntpsec]
     state: present
 - name: Add gnupg in order to add PPA with apt # required for node, python, mongo
   ansible.builtin.apt:

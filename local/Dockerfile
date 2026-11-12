@@ -1,8 +1,8 @@
-FROM debian:12
+FROM debian:13
 ENV container=docker
 
 RUN apt-get update -y && apt-get dist-upgrade -y
-RUN apt-get install -y --no-install-recommends ssh sudo wget curl cron software-properties-common build-essential libffi-dev systemd openssh-client net-tools
+RUN apt-get install -y --no-install-recommends ssh sudo wget curl cron build-essential libffi-dev systemd openssh-client net-tools
 
 # Add vagrant user and key for SSH
 RUN useradd --create-home -s /bin/bash vagrant
