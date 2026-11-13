@@ -88,6 +88,10 @@
         filename: mongodb-org
         update_cache: true
       when: ansible_facts.machine == 'aarch64'
+    # Dépôt bookworm même sur Debian 13 : MongoDB ne publie mongodb-org-server
+    # pour trixie qu'à partir de la 9.0. Le paquet bookworm s'installe tel quel,
+    # libssl3t64 et libcurl4t64 fournissant libssl3 et libcurl4. À basculer sur
+    # trixie lors du passage à MongoDB 9.0.
     - name: Add mongoDB apt repository for amd64 {{ mongodb_version }}
       ansible.builtin.apt_repository:
         repo: >-

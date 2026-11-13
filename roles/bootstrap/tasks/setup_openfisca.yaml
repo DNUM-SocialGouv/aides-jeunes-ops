@@ -6,13 +6,33 @@
     openfisca_service_name: "{{ item.name }}_openfisca"
 - name: Openfisca setup and update
   block:
+    # Le venv est lié à son interpréteur par un lien symbolique. Après une
+    # montée de version de Debian, il pointe sur le nouveau Python système et
+    # ne voit plus ses paquets : pip lui-même devient introuvable. On le recrée.
+    - name: Read the virtual env Python version of {{ item.name }}
+      ansible.builtin.command:
+        argv:
+          - "{{ venv_dir }}/bin/python"
+          - -c
+          - import sys; print('%d.%d' % sys.version_info[:2])
+      register: venv_python
+      changed_when: false
+      failed_when: false
+    - name: Remove a virtual env built on another Python
+      ansible.builtin.file:
+        path: "{{ venv_dir }}"
+        state: absent
+      when: venv_python.stdout != python_control_version
+    # Python {{ python_control_version }} et non le Python système : les
+    # dépendances d'OpenFisca (numpy < 2, pandas < 2) ne s'installent pas sur le
+    # Python 3.13 de Debian 13. install_python.yaml fournit cette version.
     - name: Create Python virtual env and upgrade pip
       become: true
       become_user: "{{ server_user_name }}"
       ansible.builtin.pip:
         name: pip
         virtualenv: "{{ venv_dir }}"
-        virtualenv_command: python3 -m venv
+        virtualenv_command: python{{ python_control_version }} -m venv
         extra_args: --upgrade
     - name: Install Openfisca requirements
       become: true
@@ -20,7 +40,7 @@
       ansible.builtin.pip:
         requirements: "{{ repository_folder }}/openfisca/requirements.txt"
         virtualenv: "{{ venv_dir }}"
-        virtualenv_command: python3 -m venv
+        virtualenv_command: python{{ python_control_version }} -m venv
         extra_args: --upgrade
     - name: Setup openfisca service
       ansible.builtin.template:
