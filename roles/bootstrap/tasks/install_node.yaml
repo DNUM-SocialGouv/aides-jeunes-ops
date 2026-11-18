@@ -23,21 +23,13 @@
           ansible.builtin.command: sh /tmp/nodesource_setup.sh
           changed_when: true
 
-        - name: Pin nodejs to {{ node_min_version }}
-          become: true
-          ansible.builtin.copy:
-            dest: /etc/apt/preferences.d/00-nodejs-version
-            content: |
-              Package: nodejs
-              Pin: version {{ node_min_version }}-*
-              Pin-Priority: 1001
-            mode: "0644"
-
-        - name: Update and install nodejs
+        # latest voulu : node_min_version est un plancher, pas une version
+        # figée. La tâche ne tourne que sous le when du bloc.
+        - name: Install the latest nodejs {{ node_version }}.x from NodeSource  # noqa: package-latest
           become: true
           ansible.builtin.apt:
-            name: "nodejs={{ node_min_version }}-*"
-            state: present
+            name: nodejs
+            state: latest
             update_cache: true
 
         - name: Clean up NodeSource setup script
