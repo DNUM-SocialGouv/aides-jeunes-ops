@@ -23,9 +23,7 @@
           ansible.builtin.command: sh /tmp/nodesource_setup.sh
           changed_when: true
 
-        # latest voulu : node_min_version est un plancher, pas une version
-        # figée. La tâche ne tourne que sous le when du bloc.
-        - name: Install the latest nodejs {{ node_version }}.x from NodeSource  # noqa: package-latest
+        - name: Install the latest NodeSource nodejs for major {{ node_version }}  # noqa: package-latest
           become: true
           ansible.builtin.apt:
             name: nodejs
