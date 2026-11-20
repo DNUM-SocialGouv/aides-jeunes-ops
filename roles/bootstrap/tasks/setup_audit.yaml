@@ -23,13 +23,10 @@
     line: log_group = adm
   notify: Restart auditd
 
+# Toute la base d'un coup : en boucle, chaque tour écrase getent_passwd.
 - name: Read the deployment and application account ids
   ansible.builtin.getent:
     database: passwd
-    key: "{{ item }}"
-  loop:
-    - "{{ deploy_user }}"
-    - "{{ server_user_name }}"
 
 - name: Write audit rules
   ansible.builtin.template:

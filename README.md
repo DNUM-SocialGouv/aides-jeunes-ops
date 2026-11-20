@@ -62,11 +62,12 @@ By default, every `github_users` entry gets its GitHub keys on the shared `ansib
 
 - `ssh_nominative_accounts: true` — applied by `synchronize.yaml`:
   - one account per `github_users` entry, named after the GitHub login **in lowercase** (`Username` → `username`), with exactly the keys published at `https://github.com/<login>.keys`, in the `ssh_admins` group, with passwordless `sudo`;
-  - the shared account (`deploy_user`, which defaults to `ansible_ssh_user`) only keeps the forced-command deployment keys. Requires `ops.update_key`.
+  - the shared account (`deploy_user`, which defaults to `ansible_ssh_user`) only keeps the forced-command deployment keys. Requires `ops.update_key`, and `deploy_user` **set explicitly in the inventory** (e.g. `deploy_user: debian`): the plays refuse to run if it resolves to a nominative account.
   - Connect with `ssh <login>@<host>`, then `sudo -i` as needed.
+  - Run a playbook from your machine with `-e ansible_ssh_user=<login>`. `-u <login>` does **not** work: the inventory's `ansible_ssh_user` takes precedence over it.
 - `ssh_audit: true` — applied by `bootstrap.yaml`: sshd logs key fingerprints (`LogLevel VERBOSE`) and auditd records every command run by a human session, attributed to the login that opened it, even after `sudo -i` (`sudo ausearch -k exec_humain -i`) and every write to `/etc/ssh`, sudoers, `passwd`/`shadow` and the audit rules (`-k config_acces`, `-k config_audit`). Rules are locked (`-e 2`): changing them requires a reboot. These traces stay on the machine for now, so any administrator can still erase them; shipping them off the machine is pending validation.
 
-**Adding someone**: add their GitHub login to `github_users`, push. **Removing someone**: remove the login; on the next run the account is locked (shell `nologin`, `authorized_keys` deleted) but its home directory is kept. Adding the login back unlocks it.
+**Adding someone**: add their GitHub login to `github_users`, push. **Removing someone**: remove the login; on the next run the account is locked and expired (SSH with any key, `sudo` and cron refused, shell `nologin`, `authorized_keys` deleted) and its running processes are killed, but its home directory is kept. Adding the login back unlocks it.
 
 **Enabling on a host**: enable `ssh_audit` first, then `ssh_nominative_accounts` while keeping a session open on the shared account, and have everyone check `ssh <login>@<host>` and `sudo -v` before closing it. **Rolling back**: set `ssh_nominative_accounts: false`; the next run puts the `github_users` keys back on the shared account. If nobody can connect anymore, use the hosting provider's console.
 

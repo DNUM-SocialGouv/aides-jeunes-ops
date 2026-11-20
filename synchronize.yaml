@@ -59,6 +59,15 @@
             fail_msg: >-
               `ssh_nominative_accounts` exige `ops.update_key` : c'est sa pose
               exclusive qui retire les clés personnelles de {{ deploy_user }}.
+        # Lancé depuis un poste avec `-e ansible_ssh_user=<login>`, un
+        # `deploy_user` déduit de ansible_ssh_user viserait le compte de la
+        # personne : la clé de déploiement exclusive y remplacerait ses clés.
+        - name: Check that the deployment account is not a nominative one
+          ansible.builtin.assert:
+            that: deploy_user | lower not in github_users | map('lower')
+            fail_msg: >-
+              `deploy_user` vaut {{ deploy_user }}, un compte nominatif : fixer
+              `deploy_user` (le compte partagé) dans l'inventaire.
         - name: Create the SSH administrators group
           ansible.builtin.group:
             name: ssh_admins
@@ -71,6 +80,7 @@
             shell: /bin/bash
             password: "*" # pas de mot de passe, connexion par clé seulement
             password_lock: false # lève le verrou d'une personne réinscrite
+            expires: -1 # lève l'expiration d'une personne réinscrite
           with_items: "{{ github_users }}"
         - name: Set authorized_keys of nominative accounts from GitHub
           ansible.posix.authorized_key:
@@ -91,13 +101,22 @@
             database: group
             key: ssh_admins
         # Verrouillé et non supprimé : le répertoire peut servir à une enquête.
+        # Le compte expiré est refusé par SSH (quelle que soit la clé, même
+        # posée ailleurs que dans authorized_keys), sudo et cron.
         # Réinscrire la personne dans `github_users` la déverrouille.
         - name: Lock accounts removed from github_users
           ansible.builtin.user:
             name: "{{ item }}"
             password_lock: true
             shell: /usr/sbin/nologin
+            expires: 1
           loop: "{{ removed_ssh_admins }}"
+        - name: End sessions of removed accounts
+          ansible.builtin.command: pkill -KILL -u {{ item }}
+          loop: "{{ removed_ssh_admins }}"
+          register: removed_sessions
+          changed_when: removed_sessions.rc == 0
+          failed_when: removed_sessions.rc > 1 # 1 : aucune session
         - name: Remove authorized_keys of removed accounts
           ansible.builtin.file:
             path: ~{{ item }}/.ssh/authorized_keys
