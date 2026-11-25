@@ -6,6 +6,9 @@ virtualmachines:
       ansible_host: eclipse.mes-aides.incubateur.net
       ansible_port: 22
       ansible_ssh_user: debian
+      deploy_user: debian
+      ssh_audit: true
+      ssh_nominative_accounts: true
       ansible_ssh_private_key_file: ~/.ssh/id_rsa
       ansible_host_ip: 51.91.16.19
       fullname: eclipse.mes-aides.incubateur.net
