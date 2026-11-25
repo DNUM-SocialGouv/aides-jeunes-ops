@@ -1,4 +1,14 @@
 ---
+# Voir synchronize.yaml : les clés de déploiement ne doivent jamais aller
+# sur le compte de la personne qui lance le jeu.
+- name: Check that the deployment account is not a nominative one
+  ansible.builtin.assert:
+    that: deploy_user | lower not in github_users | default([]) | map('lower')
+    fail_msg: >-
+      `deploy_user` vaut {{ deploy_user }}, un compte nominatif : fixer
+      `deploy_user` (le compte partagé) dans l'inventaire.
+  when: ssh_nominative_accounts
+
 ## Initialize
 - name: Initialize server
   ansible.builtin.include_tasks: initialize_server.yaml
@@ -47,10 +57,15 @@
 - name: Setup systemd journal rotation
   ansible.builtin.include_tasks: setup_systemd_journal.yaml
 
+## Setup audit trail
+- name: Configure SSH audit trail
+  ansible.builtin.include_tasks: setup_audit.yaml
+  when: ssh_audit
+
 ## Setup Monitoring service
 - name: Configure monitoring service
   ansible.builtin.include_tasks: setup_monitor.yaml
-  when: monitor and monitor.port
+  when: monitor.port is defined
 
 ## Setup systemd failure alerting
 - name: Configure systemd failure alerting
