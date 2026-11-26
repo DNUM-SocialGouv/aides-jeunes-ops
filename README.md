@@ -106,6 +106,8 @@ Warning: Launching the `synchronize.yaml` playbook alone will remove continuous 
 
 Run the command `ansible-playbook -i ./inventories/vps.yaml bootstrap.yaml` in order to bootstrap the server basic configuration.
 
+The application refuses to start in production without a `SESSION_SECRET` of 32 characters or more. If the application's `.env` (`/home/main/<application name>/repository/.env`) has none, the bootstrap generates a random one. An existing value is never changed.
+
 Once done, every applications should be up and running on the server.
 
 Note that you only need to run this command once, but you can re-run it if you modify either Nginx, Python, Mongo configuration or if the bootstrap process failed at some point. All unaltered steps that ran successfully will be automatically skipped by Ansible.
