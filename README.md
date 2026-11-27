@@ -4,7 +4,7 @@ Set up the [Mes Aides](https://mes-aides.1jeune1solution.beta.gouv.fr/) stack.
 
 ## Before starting
 
-The ansible scripts in this repository have been tested only Debian 12 x86_64 server. However, older or newer versions of Debian may be compatible.
+The ansible scripts in this repository have been tested only on Debian 13 (trixie) x86_64 server. However, older or newer versions of Debian may be compatible.
 
 ## Deployment
 
@@ -105,6 +105,8 @@ Warning: Launching the `synchronize.yaml` playbook alone will remove continuous 
 ### Bootstrap server stack
 
 Run the command `ansible-playbook -i ./inventories/vps.yaml bootstrap.yaml` in order to bootstrap the server basic configuration.
+
+The application refuses to start in production without a `SESSION_SECRET` of 32 characters or more. If the application's `.env` (`/home/main/<application name>/repository/.env`) has none, the bootstrap generates a random one. An existing value is never changed.
 
 Once done, every applications should be up and running on the server.
 

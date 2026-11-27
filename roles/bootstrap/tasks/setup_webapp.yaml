@@ -12,6 +12,23 @@
     update: true
     clone: false
     version: "{{ item.branch }}"
+# L'application refuse de démarrer en production sans SESSION_SECRET (32
+# caractères min.). On en génère un s'il manque ; un secret existant n'est
+# jamais modifié.
+- name: Ensure SESSION_SECRET exists for {{ item.name }}
+  become: true
+  become_user: "{{ server_user_name }}"
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -q '^SESSION_SECRET=' .env 2>/dev/null && exit 0
+    echo "SESSION_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" >> .env
+    chmod 600 .env
+    echo created
+  args:
+    chdir: "{{ repository_folder }}"
+    executable: /bin/bash
+  register: session_secret
+  changed_when: "'created' in session_secret.stdout"
 - name: Install npm packages and restart server
   become: true
   become_user: "{{ server_user_name }}"

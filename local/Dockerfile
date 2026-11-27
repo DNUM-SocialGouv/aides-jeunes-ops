@@ -1,8 +1,8 @@
-FROM debian:12
+FROM debian:13
 ENV container=docker
 
 RUN apt-get update -y && apt-get dist-upgrade -y
-RUN apt-get install -y --no-install-recommends ssh sudo wget curl cron software-properties-common build-essential libffi-dev systemd openssh-client net-tools
+RUN apt-get install -y --no-install-recommends ssh sudo wget curl ca-certificates python3 cron build-essential libffi-dev systemd openssh-client net-tools
 
 # Add vagrant user and key for SSH
 RUN useradd --create-home -s /bin/bash vagrant
@@ -18,7 +18,7 @@ RUN sed -i -e 's/Defaults.*requiretty/#&/' /etc/sudoers
 RUN sed -i -e 's/\(UsePAM \)yes/\1 no/' /etc/ssh/sshd_config
 
 # Start SSH
-RUN mkdir /var/run/sshd
+RUN mkdir -p /var/run/sshd
 EXPOSE 22
 EXPOSE 8001
 EXPOSE 8002

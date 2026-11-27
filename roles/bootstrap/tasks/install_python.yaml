@@ -15,7 +15,7 @@
             name:
               - build-essential
               - checkinstall
-              - libncursesw5-dev
+              - libncurses-dev
               - libssl-dev
               - libsqlite3-dev
               - tk-dev
